@@ -8,27 +8,25 @@
 #include <SD.h>
 #include <SPI.h>
 
-#define scaling 10,100,0,75 // The scaling from raw read to degrees
+#define scaling 10,100,0,75 // The scaling from raw read to A.U. (Arbitary Units)
 
 byte I2Cread = 0; // Reading from I2C bus
 int count1 = 0; // Counter
 int count2 = 0; // Another counter to prevent lock-ups
 bool flag = false; // Variable to see if data has been received
-bool fin = false; // Variable to see if the measurements are finished
+bool stopRec = true; // Variable to see if the measurements are finished
 int address = 0x04; // I2C address (4)
-bool des = false; // Destroy old file(s)?
+bool des = true; // Destroy old file(s)?
 
 File logFile; // SD card file
 
 void setup() {
   Serial.begin(57600); // Baudrate for Serial communication
   Serial.print("Initialising");
-  Wire.begin(address); // Initializing the Wire library with the I2C address
-  Wire.onReceive(rec); // Set function to catch the I2C bus data
   Serial.print(".");
   if (!SD.begin(4)) { // Initialise SD card library
     Serial.println(" SD error!");
-    fin = true; // Tell the data catching function to stop
+    stopRec = true; // Tell the data catching function to stop
     while (1) {}
   }
   Serial.print(".");
@@ -38,7 +36,10 @@ void setup() {
   }
   logFile = SD.open("log.txt", FILE_WRITE); // Open/create log file from SD card
   Serial.print(". ");
+  Wire.begin(address); // Initializing the Wire library with the I2C address
+  Wire.onReceive(rec); // Set function to catch the I2C bus data
   Serial.println("Init done!\n");
+  stopRec = false;
 }
 
 void loop() {
@@ -54,16 +55,24 @@ void loop() {
       if (count2 >= 3) { // Check if the second counter has reached 3
         logFile.close(); // Close the log file (so the SD card can be removed)
         Serial.print("\nFinished, safe to remove SD card!");
-        fin = true; // Tell the data catching function that the program is finished
+        stopRec = true; // Tell the data catching function that the program is finished
         while (1) {} // Stop executing the program
       }
+    }
+  }
+  if (Serial.available()) {
+    if (Serial.read() == 's') {
+      logFile.close(); // Close the log file (so the SD card can be removed)
+      Serial.print("\nFinished, safe to remove SD card!");
+      stopRec = true;
+      while (1) {} // Stop executing the program
     }
   }
   delay(10);
 }
 
 void rec(int byteCount) {
-  if (!fin) { // If program has not finished
+  if (!stopRec) { // If program has not finished
     Serial.print("Reading... ");
     I2Cread = Wire.read(); // Read byte from Wire (I2C)
     I2Cread = map(I2Cread, scaling); // Map the reading from raw read to degrees
