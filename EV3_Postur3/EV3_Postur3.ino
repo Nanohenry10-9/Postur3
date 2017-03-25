@@ -8,7 +8,7 @@
 #include <SD.h>
 #include <SPI.h>
 
-#define scaling 10,100,0,75 // The scaling from raw read to A.U. (Arbitary Units)
+#define scaling 10,100,0,75 // The scaling from raw read to A.U. (Arbitary Units). It makes the value zero if it's under 10, and then converts this to something closer to degrees. It currently cannot convert them into actual degrees, as they are in my case not linear.
 
 byte I2Cread = 0; // Reading from I2C bus
 int count1 = 0; // Counter
@@ -21,13 +21,14 @@ bool des = true; // Destroy old file(s)?
 File logFile; // SD card file
 
 void setup() {
-  Serial.begin(57600); // Baudrate for Serial communication
+  Serial.begin(9600); // Baudrate for Serial communication (communication with the computer)
   Serial.print("Initialising");
   Serial.print(".");
+  pinMode(4, OUTPUT);
   if (!SD.begin(4)) { // Initialise SD card library
     Serial.println(" SD error!");
-    stopRec = true; // Tell the data catching function to stop
-    while (1) {}
+    stopRec = true; // Tell the data catching function to not start
+    while (1) {} // Stop the program
   }
   Serial.print(".");
   if (des) { // Delete old files
@@ -39,7 +40,7 @@ void setup() {
   Wire.begin(address); // Initializing the Wire library with the I2C address
   Wire.onReceive(rec); // Set function to catch the I2C bus data
   Serial.println("Init done!\n");
-  stopRec = false;
+  stopRec = false; // 
 }
 
 void loop() {
